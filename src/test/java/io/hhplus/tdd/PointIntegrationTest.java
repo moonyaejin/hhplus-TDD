@@ -2,60 +2,45 @@ package io.hhplus.tdd;
 
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
+import io.hhplus.tdd.point.PointController;
+import io.hhplus.tdd.point.PointService;
 import io.hhplus.tdd.point.TransactionType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.context.annotation.Import;
-
-import java.lang.reflect.Field;
-import java.util.List;
-import java.util.Map;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// 통합 테스트
-// 각 API URL이 정상적으로 모든 계층을 거쳐 결과를 만드는지 확인
-
-/**
- [ 예시 시나리오 ]
- 1. 조회: 포인트가 없을 때 0 반환
- 2. 충전: 양수 금액 충전 시 정상 동작 / 0·음수 금액 충전 시 400 오류
- 3. 사용: 잔고 충분 → 정상 차감, 잔고 부족 → 409 오류
- 4. 내역 조회: 충전/사용 시 기록이 쌓이는지 확인
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(io.hhplus.tdd.GlobalPointExceptionHandler.class)
 class PointIntegrationTest {
 
-    @Autowired
     MockMvc mockMvc;
-
-    @Autowired
     UserPointTable userPointTable;
-
-    @Autowired
     PointHistoryTable pointHistoryTable;
 
     @BeforeEach
-    void clearData() throws Exception {
-        // Reflection으로 내부 자료구조 직접 비움
-        Field userTableField = UserPointTable.class.getDeclaredField("table");
-        userTableField.setAccessible(true);
-        ((Map<?, ?>) userTableField.get(userPointTable)).clear();
+    void setup() {
+        // ★ 매 테스트마다 fresh DB 객체 생성
+        userPointTable = new UserPointTable();
+        pointHistoryTable = new PointHistoryTable();
 
-        Field historyTableField = PointHistoryTable.class.getDeclaredField("table");
-        historyTableField.setAccessible(true);
-        ((List<?>) historyTableField.get(pointHistoryTable)).clear();
+        PointService pointService = new PointService(userPointTable, pointHistoryTable);
+        PointController controller = new PointController(pointService);
+
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalPointExceptionHandler())
+                .build();
     }
 
     @Test
@@ -75,7 +60,6 @@ class PointIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.point", is(1000)));
 
-        // 내역에 CHARGE 기록 1건 추가 확인
         mockMvc.perform(get("/point/1/histories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()", is(1)))
@@ -90,7 +74,7 @@ class PointIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("0"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentType("text/plain;charset=UTF-8"))   // ★ Content-Type 검증
+                .andExpect(content().contentType("text/plain;charset=UTF-8"))
                 .andExpect(content().string("금액은 0보다 큰 정수여야 합니다."));
     }
 
@@ -101,14 +85,13 @@ class PointIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("-100"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentType("text/plain;charset=UTF-8"))   // ★ Content-Type 검증
+                .andExpect(content().contentType("text/plain;charset=UTF-8"))
                 .andExpect(content().string("금액은 0보다 큰 정수여야 합니다."));
     }
 
     @Test
     @DisplayName("사용: 잔고 충분 → 정상 차감")
     void 포인트사용_성공() throws Exception {
-        // 사전 충전
         userPointTable.insertOrUpdate(1L, 1000);
 
         mockMvc.perform(patch("/point/1/use")
@@ -117,7 +100,6 @@ class PointIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.point", is(500)));
 
-        // 사용 내역이 1건 추가 되었는지 조회로 검증
         mockMvc.perform(get("/point/1/histories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()", is(1)))
@@ -134,7 +116,7 @@ class PointIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("200"))
                 .andExpect(status().isConflict())
-                .andExpect(content().contentType("text/plain;charset=UTF-8"))   // ★ Content-Type 검증
+                .andExpect(content().contentType("text/plain;charset=UTF-8"))
                 .andExpect(content().string("잔액 부족"));
     }
 
