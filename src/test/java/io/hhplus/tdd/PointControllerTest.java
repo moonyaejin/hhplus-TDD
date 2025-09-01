@@ -2,7 +2,7 @@ package io.hhplus.tdd;
 
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
-import io.hhplus.tdd.point.GlobalPointExceptionHandler;
+import io.hhplus.tdd.GlobalPointExceptionHandler;
 import io.hhplus.tdd.point.PointController;
 import io.hhplus.tdd.point.PointService;
 import org.junit.jupiter.api.BeforeEach;
