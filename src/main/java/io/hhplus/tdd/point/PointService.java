@@ -66,7 +66,6 @@ public class PointService {
         }
     }
 
-    // 공정 락: 대기 순서대로 lock 획득 → 기아 방지
     private ReentrantLock lockFor(long userId) {
         return locks.computeIfAbsent(userId, id -> new ReentrantLock(true));
     }
@@ -77,7 +76,6 @@ public class PointService {
         }
     }
 
-    // 오버플로우 & 언더플로우 방지
     private boolean willOverflow(long a, long b) {
         return (b > 0 && a > Long.MAX_VALUE - b) || (b < 0 && a < Long.MIN_VALUE - b);
     }

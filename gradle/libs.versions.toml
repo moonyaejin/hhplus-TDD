@@ -28,6 +28,7 @@ spring_boot = { id = "org.springframework.boot", version.ref = "spring_boot" }
 spring_dependency_management = { id = "io.spring.dependency-management", version.ref = "spring_io_dependency_management" }
 [libraries]
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 
 spring_context = { module = "org.springframework:spring-context" }
 spring_cloud_dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "spring_cloud_dependencies" }
